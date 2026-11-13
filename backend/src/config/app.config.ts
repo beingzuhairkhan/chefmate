@@ -1,0 +1,25 @@
+import { registerAs } from '@nestjs/config';
+
+export default registerAs('app', () => ({
+  port: parseInt(process.env.PORT || '3000', 10),
+  frontendOrigin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
+  isDemoMode: !process.env.GEMINI_API_KEY && !process.env.SARVAM_API_KEY,
+  jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+  geminiFallbackModel: process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.6-flash',
+  sarvamApiKey: process.env.SARVAM_API_KEY || '',
+  sarvamSttUrl: process.env.SARVAM_STT_URL || 'https://api.sarvam.ai/speech-to-text',
+  sarvamTtsUrl: process.env.SARVAM_TTS_URL || 'https://api.sarvam.ai/text-to-speech',
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  redisHost: process.env.REDIS_HOST || 'localhost',
+  redisPort: parseInt(process.env.REDIS_PORT || '6379', 10),
+  redisPassword: process.env.REDIS_PASSWORD || '',
+  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/chefmate',
+  openrouterApiKey: process.env.OPENROUTER_API_KEY,
+openrouterModel: process.env.OPENROUTER_MODEL,
+openrouterVisionModel: process.env.OPENROUTER_VISION_MODEL,
+}));

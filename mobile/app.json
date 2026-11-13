@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "ChefMate AI",
+    "slug": "chefmate-ai",
+    "scheme": "chefmate",
+    "version": "1.0.0",
+    "platforms": ["ios", "android"],
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ChefMate uses your photo library to scan fridge ingredients.",
+          "cameraPermission": "ChefMate uses your camera to scan fridge ingredients."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "ChefMate uses your microphone for voice cooking assistance."
+        }
+      ],
+      "expo-secure-store",
+      "expo-notifications",
+      "expo-font",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.chefmate.mobile"
+    },
+    "android": {
+      "package": "ai.chefmate.mobile",
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "POST_NOTIFICATIONS"
+      ]
+    }
+  }
+}
