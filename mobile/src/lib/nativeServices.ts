@@ -1,4 +1,5 @@
-import * as Speech from 'expo-speech';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
 import type { Nutrition, Recipe, RecipeFilters, ScannedIngredient } from '@/types';
 import { isLiveBackend } from '@/lib/api';
 import {
@@ -63,23 +64,100 @@ export const DEMO_TRANSCRIPTS = [
 
 export const VOICE_LANGUAGES = [
   { code: 'en-IN', label: 'English (India)' },
-  { code: 'en-US', label: 'English (US)' },
   { code: 'hi-IN', label: 'हिन्दी (Hindi)' },
-  { code: 'ta-IN', label: 'தமிழ் (Tamil)' },
-  { code: 'te-IN', label: 'తెలుగు (Telugu)' },
-  { code: 'kn-IN', label: 'ಕನ್ನಡ (Kannada)' },
-  { code: 'mr-IN', label: 'मराठी (Marathi)' },
-  { code: 'bn-IN', label: 'বাংলা (Bengali)' },
 ];
 
 export async function transcribeAudio(audioBase64: string, language = 'en-IN'): Promise<string> {
   return transcribe(audioBase64, language);
 }
 
-export async function speakText(text: string, language = 'en-IN'): Promise<void> {
-  await speakWithBackend(text, language);
-  await new Promise<void>((resolve, reject) => {
-    Speech.speak(text, { language, rate: 1, onDone: resolve, onStopped: resolve, onError: reject });
+function splitSpeech(text: string, maxLength = 240): string[] {
+  const sentences = text.match(/[^.!?।]+[.!?।]?/g) ?? [text];
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const sentence of sentences.map((part) => part.trim()).filter(Boolean)) {
+    if (sentence.length > maxLength) {
+      if (current) chunks.push(current);
+      current = '';
+      const words = sentence.split(/\s+/);
+      for (const word of words) {
+        if (current && current.length + word.length + 1 > maxLength) {
+          chunks.push(current);
+          current = '';
+        }
+        current = current ? `${current} ${word}` : word;
+      }
+    } else if (current && current.length + sentence.length + 1 > maxLength) {
+      chunks.push(current);
+      current = sentence;
+    } else {
+      current = current ? `${current} ${sentence}` : sentence;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+async function playAudioChunk(audioBase64: string): Promise<void> {
+  const cacheDirectory = FileSystem.cacheDirectory;
+  if (!cacheDirectory) throw new Error('Voice unavailable. Audio storage is not available on this device.');
+
+  const audioUri = `${cacheDirectory}chefmate-voice-${Date.now()}.wav`;
+  await FileSystem.writeAsStringAsync(audioUri, audioBase64, {
+    encoding: FileSystem.EncodingType.Base64,
   });
+  await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+
+  const player = createAudioPlayer({ uri: audioUri });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        subscription.remove();
+        if (error) reject(error);
+        else resolve();
+      };
+      const timeout = setTimeout(
+        () => finish(new Error('Voice playback timed out. Please try again.')),
+        60000,
+      );
+      const subscription = player.addListener('playbackStatusUpdate', (status) => {
+        if (status.didJustFinish) finish();
+      });
+      try {
+        player.play();
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error('Voice playback failed.'));
+      }
+    });
+  } finally {
+    player.remove();
+    await FileSystem.deleteAsync(audioUri, { idempotent: true });
+  }
+}
+
+export async function speakText(text: string, language = 'en-IN'): Promise<void> {
+  const chunks = splitSpeech(text);
+  if (chunks.length === 0) return;
+
+  let result = await speakWithBackend(chunks[0], language).then(
+    (response) => ({ response }),
+    (error: unknown) => ({ error }),
+  );
+  for (let index = 0; index < chunks.length; index += 1) {
+    if ('error' in result) throw result.error;
+    const nextResult = index + 1 < chunks.length
+      ? speakWithBackend(chunks[index + 1], language).then(
+        (response) => ({ response }),
+        (error: unknown) => ({ error }),
+      )
+      : undefined;
+    await playAudioChunk(result.response.audioBase64);
+    if (nextResult) result = await nextResult;
+  }
 }
 

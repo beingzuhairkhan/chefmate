@@ -17,7 +17,6 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
 import { ToastProvider } from '@/components';
 import { colors } from '@/theme';
 import { ApiError } from '@/lib/api';
@@ -51,15 +50,6 @@ function RestoreSession() {
   return null;
 }
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: true,
-  }),
-});
-
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { staleTime: 60_000, retry: 1 } },
@@ -86,7 +76,6 @@ export default function RootLayout() {
               <Stack.Screen name="index" />
               <Stack.Screen name="login" />
               <Stack.Screen name="signup" />
-              <Stack.Screen name="forgot-password" />
               <Stack.Screen name="onboarding" />
               <Stack.Screen name="app" />
             </Stack>

@@ -4,7 +4,7 @@
     "slug": "chefmate-ai",
     "scheme": "chefmate",
     "version": "1.0.0",
-    "platforms": ["ios", "android"],
+    "platforms": ["ios", "android" , "web"],
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "plugins": [
@@ -23,7 +23,6 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications",
       "expo-font",
       "expo-asset"
     ],
@@ -38,9 +37,27 @@
       "package": "ai.chefmate.mobile",
       "permissions": [
         "RECORD_AUDIO",
-        "CAMERA",
-        "POST_NOTIFICATIONS"
+        "CAMERA"
       ]
-    }
+    },
+
+  "expo": {
+    "name": "ChefMate AI",
+    "slug": "chefmate-ai",
+    "scheme": "chefmate",
+    "version": "1.0.0",
+    "platforms": ["ios", "android", "web"],
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+
+}
   }
 }

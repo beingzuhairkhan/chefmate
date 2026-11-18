@@ -1,5 +1,4 @@
-import { Injectable, Inject, forwardRef, Logger } from '@nestjs/common';
-import { GeminiService } from '../gemini.service';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { SarvamService } from '../sarvam.service';
 
 export interface VoiceToolCall {
@@ -78,26 +77,21 @@ const CONFIRMATION_TOOLS = new Set(AVAILABLE_TOOLS.filter((t) => t.needsConfirma
 
 @Injectable()
 export class VoiceAgent {
-  private readonly logger = new Logger(VoiceAgent.name);
-
-  constructor(
-    private readonly gemini: GeminiService,
-    private readonly sarvam: SarvamService,
-  ) {}
+  constructor(private readonly sarvam: SarvamService) {}
 
   isConfigured() {
-    return this.gemini.isConfigured() && this.sarvam.isConfigured();
+    return this.sarvam.isConfigured();
   }
 
   async transcribe(audioBase64: string, language = 'en-IN'): Promise<{ transcript: string; demoMode: boolean }> {
     const transcript = await this.sarvam.speechToText(audioBase64, language);
-    return { transcript, demoMode: !this.sarvam.isConfigured() };
+    return { transcript, demoMode: false };
   }
 
-  async understand(transcript: string): Promise<{ textResponse: string; toolCalls: VoiceToolCall[]; demoMode: boolean }> {
-    if (!this.gemini.isConfigured()) {
-      return this.demoUnderstand(transcript);
-    }
+  async understand(
+    transcript: string,
+    language = 'en-IN',
+  ): Promise<{ textResponse: string; toolCalls: VoiceToolCall[]; demoMode: boolean }> {
     const toolsDescription = AVAILABLE_TOOLS.map(
       (t) => `- ${t.name}: ${t.description}. Params: ${JSON.stringify(t.parameters)}`,
     ).join('\n');
@@ -109,19 +103,24 @@ ${toolsDescription}
 Return JSON: { "textResponse": "what you say to the user", "toolCalls": [{ "tool": "tool_name", "args": {...} }] }
 Only use tools from the list above. If no tool is needed, return empty toolCalls array. Keep textResponse conversational and brief.`;
 
-    const prompt = `User said: "${transcript}"`;
-    const res = await this.gemini.generateJson<{ textResponse: string; toolCalls: Array<{ tool: string; args: Record<string, any> }> }>(
-      prompt,
-      { systemPrompt, temperature: 0.2 },
-    );
+    const content = await this.sarvam.understand(transcript, systemPrompt, language);
+    let res: { textResponse?: string; toolCalls?: Array<{ tool: string; args: Record<string, any> }> };
+    try {
+      res = JSON.parse(content);
+    } catch {
+      throw new ServiceUnavailableException('Voice unavailable. Sarvam returned an invalid response.');
+    }
+    if (typeof res.textResponse !== 'string' || !Array.isArray(res.toolCalls)) {
+      throw new ServiceUnavailableException('Voice unavailable. Sarvam returned an incomplete response.');
+    }
     const toolCalls: VoiceToolCall[] = (res.toolCalls || [])
-      .filter((tc) => TOOL_NAMES.includes(tc.tool))
+      .filter((tc) => tc && TOOL_NAMES.includes(tc.tool))
       .map((tc) => ({
         tool: tc.tool,
         args: tc.args || {},
         needsConfirmation: CONFIRMATION_TOOLS.has(tc.tool),
       }));
-    return { textResponse: res.textResponse || 'I can help with that.', toolCalls, demoMode: false };
+    return { textResponse: res.textResponse, toolCalls, demoMode: false };
   }
 
   async speak(text: string, language = 'en-IN'): Promise<{ audioBase64: string; demoMode: boolean }> {
@@ -131,7 +130,7 @@ Only use tools from the list above. If no tool is needed, return empty toolCalls
 
   async fullPipeline(audioBase64: string, language = 'en-IN'): Promise<VoiceResponse> {
     const { transcript } = await this.transcribe(audioBase64, language);
-    const { textResponse, toolCalls } = await this.understand(transcript);
+    const { textResponse, toolCalls } = await this.understand(transcript, language);
     const { audioBase64: audio } = await this.speak(textResponse, language);
     return {
       transcript,
@@ -142,84 +141,6 @@ Only use tools from the list above. If no tool is needed, return empty toolCalls
     };
   }
 
-  private demoUnderstand(transcript: string): { textResponse: string; toolCalls: VoiceToolCall[]; demoMode: boolean } {
-    const lower = transcript.toLowerCase();
-
-    if (lower.includes('paneer') || lower.includes('tomato') || lower.includes('kya bana')) {
-      const ingredients = lower.match(/paneer|tomato|onion|spinach|egg|milk/g) || ['paneer', 'tomato'];
-      return {
-        textResponse: `I see you have ${ingredients.join(' and ')}. Let me generate some recipe suggestions for you. [Demo Mode]`,
-        toolCalls: [{ tool: 'generate_recipes', args: { ingredients }, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-    if (lower.includes('breakfast')) {
-      return {
-        textResponse: 'Here\'s a healthy breakfast suggestion based on your pantry. [Demo Mode]',
-        toolCalls: [{ tool: 'generate_recipes', args: { ingredients: [], cuisine: 'any' }, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-    if (lower.includes('potato') && lower.includes('pantry')) {
-      const qtyMatch = lower.match(/(\d+)\s*(kilo|kg|kilogram)/);
-      const qty = qtyMatch ? parseInt(qtyMatch[1], 10) * 1000 : 2000;
-      return {
-        textResponse: `Adding ${qty} grams of potatoes to your pantry. [Demo Mode]`,
-        toolCalls: [{ tool: 'add_pantry_item', args: { name: 'Potatoes', quantity: qty, unit: 'g', category: 'Vegetables' }, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-    if (lower.includes('meal plan') || lower.includes('tomorrow')) {
-      return {
-        textResponse: 'Generating your weekly meal plan now. [Demo Mode]',
-        toolCalls: [{ tool: 'generate_meal_plan', args: { budget: 100, dietaryPreference: 'vegetarian' }, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-    if (lower.includes('grocery') || lower.includes('shopping') || lower.includes('missing ingredients')) {
-      return {
-        textResponse: 'I\'ll add the missing ingredients to your shopping list. [Demo Mode]',
-        toolCalls: [{ tool: 'add_grocery_items', args: { items: [{ name: 'Missing items', quantity: 1, unit: 'pcs', category: 'Other' }] }, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-    if (lower.includes('timer') && lower.includes('minute')) {
-      const minMatch = lower.match(/(\d+)\s*minute/);
-      const seconds = minMatch ? parseInt(minMatch[1], 10) * 60 : 600;
-      return {
-        textResponse: `Setting a timer for ${seconds / 60} minutes. [Demo Mode]`,
-        toolCalls: [{ tool: 'set_timer', args: { seconds }, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-    if (lower.includes('next') && lower.includes('step')) {
-      return {
-        textResponse: 'Moving to the next cooking step. [Demo Mode]',
-        toolCalls: [{ tool: 'next_cooking_step', args: {}, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-    if (lower.includes('vegetarian') || lower.includes('dairy-free') || lower.includes('spice') || lower.includes('cheaper')) {
-      return {
-        textResponse: `I'll modify the recipe: "${transcript}". [Demo Mode]`,
-        toolCalls: [{ tool: 'modify_recipe', args: { recipeId: '', instruction: transcript }, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-    if (lower.includes('protein') || lower.includes('nutrition') || lower.includes('calorie')) {
-      return {
-        textResponse: 'Here\'s the nutrition breakdown for this recipe. [Demo Mode]',
-        toolCalls: [{ tool: 'get_recipe_nutrition', args: { recipeId: '' }, needsConfirmation: false }],
-        demoMode: true,
-      };
-    }
-
-    return {
-      textResponse: 'I can help you scan your fridge, generate recipes, plan meals, manage groceries, set timers, and guide you through cooking. What would you like to do? [Demo Mode]',
-      toolCalls: [],
-      demoMode: true,
-    };
-  }
 }
 
 export { AVAILABLE_TOOLS };

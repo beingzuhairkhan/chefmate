@@ -12,6 +12,7 @@ export default registerAs('app', () => ({
   sarvamApiKey: process.env.SARVAM_API_KEY || '',
   sarvamSttUrl: process.env.SARVAM_STT_URL || 'https://api.sarvam.ai/speech-to-text',
   sarvamTtsUrl: process.env.SARVAM_TTS_URL || 'https://api.sarvam.ai/text-to-speech',
+  sarvamChatUrl: process.env.SARVAM_CHAT_URL || 'https://api.sarvam.ai/v1/chat/completions',
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',

@@ -19,7 +19,7 @@ export class VoiceController {
   }
 
   @Post('respond')
-  @ApiOperation({ summary: 'Gemini reasoning + tool execution: respond to a user message and run tools' })
+  @ApiOperation({ summary: 'Sarvam assistant response and voice action execution' })
   respond(@CurrentUser('userId') userId: string, @Body() dto: RespondDto) {
     return this.voiceService.respond(userId, dto.text, dto.language || 'en-IN', dto.context);
   }
@@ -31,7 +31,7 @@ export class VoiceController {
   }
 
   @Post('pipeline')
-  @ApiOperation({ summary: 'Full voice pipeline: STT -> Gemini -> tools -> TTS' })
+  @ApiOperation({ summary: 'Full Sarvam voice pipeline: STT -> assistant -> tools -> TTS' })
   pipeline(@CurrentUser('userId') userId: string, @Body() dto: TranscribeDto) {
     return this.voiceService.fullPipeline(userId, dto.audio, dto.language || 'en-IN');
   }

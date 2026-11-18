@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -11,20 +12,22 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type StyleProp,
   type TextStyle,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import LottieView from 'lottie-react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   ArrowLeft, ArrowRight, Bell, CalendarRange, Camera, Check, ChevronDown, ChevronRight,
-  Circle, Clock, Heart, Image as ImageIcon, Mic, Plus, Search, Send, ShoppingCart,
-  Sparkles, Trash2, Wand2, X,
+  Circle, Clock, Eye, EyeOff, Heart, Image as ImageIcon, Mic, Plus, Search, Send,
+  ShoppingCart, Sparkles, Trash2, Wand2, X,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as Notifications from 'expo-notifications';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { colors, styles } from '@/theme';
@@ -134,10 +137,93 @@ function Brand({ size = 42 }: { size?: number }) {
   </View>;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function ScalePressable({
+  children,
+  onPress,
+  disabled = false,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  disabled?: boolean;
+  style: StyleProp<ViewStyle>;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const animateScale = (toValue: number) => Animated.spring(scale, {
+    toValue,
+    useNativeDriver: true,
+    speed: 28,
+    bounciness: 2,
+  }).start();
+  return <AnimatedPressable
+    onPress={onPress}
+    onPressIn={() => animateScale(0.97)}
+    onPressOut={() => animateScale(1)}
+    disabled={disabled}
+    accessibilityRole="button"
+    style={[style, { transform: [{ scale }] }]}
+  >
+    {children}
+  </AnimatedPressable>;
+}
+
+function PasswordField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  containerStyle,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  containerStyle?: object;
+}) {
+  const [visible, setVisible] = useState(false);
+  return <View style={containerStyle}>
+    <Label>{label}</Label>
+    <View style={{ justifyContent: 'center' }}>
+      <Field
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={!visible}
+        placeholder={placeholder}
+        style={{ paddingRight: 52 }}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <Pressable
+        onPress={() => setVisible((current) => !current)}
+        accessibilityRole="button"
+        accessibilityLabel={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+        accessibilityState={{ selected: visible }}
+        hitSlop={8}
+        style={{ position: 'absolute', right: 14, height: 44, alignItems: 'center', justifyContent: 'center' }}
+      >
+        {visible ? <EyeOff size={19} color={colors.charcoalMute} /> : <Eye size={19} color={colors.charcoalMute} />}
+      </Pressable>
+    </View>
+  </View>;
+}
+
 export function WelcomeScreen() {
   const router = useRouter();
   const toast = useToast();
   const [entering, setEntering] = useState(false);
+  const titleEntrance = useRef(new Animated.Value(0)).current;
+  const demoEntrance = useRef(new Animated.Value(0)).current;
+  const loginEntrance = useRef(new Animated.Value(0)).current;
+  const signupEntrance = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const entrance = Animated.stagger(110, [titleEntrance, demoEntrance, loginEntrance, signupEntrance].map((value) =>
+      Animated.timing(value, { toValue: 1, duration: 360, useNativeDriver: true }),
+    ));
+    entrance.start();
+    return () => entrance.stop();
+  }, [demoEntrance, loginEntrance, signupEntrance, titleEntrance]);
   const enterDemo = async () => {
     setEntering(true);
     try {
@@ -150,28 +236,62 @@ export function WelcomeScreen() {
       setEntering(false);
     }
   };
-  return <ScrollView style={styles.page} contentContainerStyle={{ flexGrow: 1 }}>
-    <View style={{ minHeight: 290, justifyContent: 'flex-end', overflow: 'hidden' }}>
-      <Image source={{ uri: 'https://images.pexels.com/photos/5127316/pexels-photo-5127316.jpeg?auto=compress&cs=tinysrgb&h=650&w=940' }} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
-      <View style={{ backgroundColor: '#13291FCC', padding: 25 }}>
-        <Txt style={{ color: colors.cream, fontSize: 30, lineHeight: 38, fontWeight: '700' }}>Your personal AI kitchen assistant.</Txt>
-        <Txt style={{ color: '#FAF8F2DD', lineHeight: 22, marginTop: 10 }}>Scan your fridge, get instant recipes, plan your week and never waste food again — powered by Gemini and Sarvam AI.</Txt>
+  return <ScrollView style={styles.page} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 30, paddingBottom: 28 }}>
+    <View style={{ alignItems: 'center', width: '100%', maxWidth: 440 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+        <Brand size={36} />
+        <Txt style={{ fontSize: 19, fontWeight: '700' }}>ChefMate <Txt style={{ color: colors.accent500 }}>AI</Txt></Txt>
       </View>
-    </View>
-    <View style={{ padding: 22, paddingBottom: 36 }}>
-      <View style={{ alignItems: 'center', marginBottom: 24 }}><Brand /><Txt style={{ fontSize: 19, fontWeight: '700', marginTop: 7 }}>ChefMate <Txt style={{ color: colors.accent500 }}>AI</Txt></Txt></View>
-      {[['✦', 'Fridge to dinner in one tap', "Photograph your fridge and watch AI turn it into tonight's meal."], ['♥', 'Voice-first cooking', 'Ask in English or Hindi. ChefMate listens, thinks, and acts.']].map(([symbol, title, message]) =>
-        <View key={title} style={[styles.card, { flexDirection: 'row', gap: 14 }]}>
-          <View style={{ width: 42, height: 42, borderRadius: 15, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center' }}><Txt style={{ color: colors.forest700, fontSize: 20 }}>{symbol}</Txt></View>
-          <View style={{ flex: 1 }}><Txt style={{ fontWeight: '600' }}>{title}</Txt><Txt style={{ color: colors.charcoalSoft, fontSize: 12, lineHeight: 18, marginTop: 4 }}>{message}</Txt></View>
-        </View>
-      )}
-      <PageButton label={entering ? 'Loading demo…' : 'Load Demo Data'} onPress={() => void enterDemo()} icon={<ArrowRight size={17} color={colors.cream} />} />
-      <Txt style={{ color: colors.charcoalMute, textAlign: 'center', fontSize: 11, lineHeight: 17, marginTop: 12 }}>Explore a sample account, pantry, recipes and meal plan.</Txt>
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
-        <Button secondary onPress={() => router.push('/login')} style={{ flex: 1 }}><ButtonText color={colors.forest700}>Log in</ButtonText></Button>
-        <Button onPress={() => router.push('/signup')} style={{ flex: 1, backgroundColor: colors.forest100 }}><ButtonText color={colors.forest700}>Sign up</ButtonText></Button>
+      <View style={{ width: 280, height: 250, alignItems: 'center', justifyContent: 'center', marginTop: 14 }}>
+        <View style={{ position: 'absolute', width: 194, height: 194, borderRadius: 100, backgroundColor: colors.accent100, opacity: 0.72, shadowColor: colors.accent300, shadowOpacity: 0.45, shadowRadius: 32, shadowOffset: { width: 0, height: 0 }, elevation: 8 }} />
+        <LottieView
+          source={require('../assets/animations/chef-cooking.json')}
+          autoPlay
+          loop
+          resizeMode="contain"
+          style={{ width: 260, height: 260 }}
+        />
       </View>
+      <Animated.View style={{
+        alignItems: 'center',
+        opacity: titleEntrance,
+        transform: [{ translateY: titleEntrance.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+      }}>
+        <Txt style={{ textAlign: 'center', fontSize: 28, lineHeight: 35, fontWeight: '700' }}>A little more joy in every meal.</Txt>
+        <Txt style={{ color: colors.charcoalSoft, textAlign: 'center', lineHeight: 21, marginTop: 8, maxWidth: 340 }}>Find recipes, make the most of your pantry, and plan meals that fit your life.</Txt>
+      </Animated.View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 20, marginBottom: 21 }}>
+        {[
+          [Sparkles, 'AI Recipes'],
+          [Camera, 'Pantry to Plate'],
+          [Clock, '2-min Setup'],
+        ].map(([Icon, label]) => {
+          const FeatureIcon = Icon as typeof Sparkles;
+          return <View key={String(label)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.white, borderRadius: 18, borderWidth: 1, borderColor: colors.forest100, paddingHorizontal: 10, paddingVertical: 8 }}>
+            <FeatureIcon size={13} color={colors.forest600} />
+            <Txt style={{ color: colors.forest800, fontSize: 10, fontWeight: '600' }}>{String(label)}</Txt>
+          </View>;
+        })}
+      </View>
+      <Animated.View style={{ width: '100%', opacity: demoEntrance, transform: [{ translateY: demoEntrance.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
+        <ScalePressable onPress={() => void enterDemo()} disabled={entering} style={{ minHeight: 50, backgroundColor: colors.forest700, borderRadius: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, opacity: entering ? 0.65 : 1 }}>
+          {entering ? <ActivityIndicator color={colors.cream} /> : <Sparkles size={17} color={colors.cream} />}
+          <Txt style={{ color: colors.cream, fontSize: 14, fontWeight: '700' }}>{entering ? 'Preparing your demo…' : 'Explore with demo data'}</Txt>
+        </ScalePressable>
+      </Animated.View>
+      <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 11 }}>
+        <Animated.View style={{ flex: 1, opacity: loginEntrance, transform: [{ translateY: loginEntrance.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
+          <ScalePressable onPress={() => router.push('/login')} style={{ minHeight: 48, borderRadius: 16, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.forest100, alignItems: 'center', justifyContent: 'center' }}>
+            <Txt style={{ color: colors.forest700, fontWeight: '700' }}>Log in</Txt>
+          </ScalePressable>
+        </Animated.View>
+        <Animated.View style={{ flex: 1, opacity: signupEntrance, transform: [{ translateY: signupEntrance.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
+          <ScalePressable onPress={() => router.push('/signup')} style={{ minHeight: 48, borderRadius: 16, backgroundColor: colors.forest100, alignItems: 'center', justifyContent: 'center' }}>
+            <Txt style={{ color: colors.forest800, fontWeight: '700' }}>Create account</Txt>
+          </ScalePressable>
+        </Animated.View>
+      </View>
+      <Txt style={{ color: colors.charcoalMute, textAlign: 'center', fontSize: 11, lineHeight: 17, marginTop: 14, maxWidth: 320 }}>Try a sample kitchen with demo data, or log in to your own account.</Txt>
     </View>
   </ScrollView>;
 }
@@ -182,6 +302,7 @@ type LoginValues = z.infer<typeof loginSchema>;
 export function LoginScreen() {
   const router = useRouter();
   const toast = useToast();
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { email: '', password: '' } });
   const submit = async (values: LoginValues) => {
     try {
@@ -200,10 +321,17 @@ export function LoginScreen() {
       <Txt style={{ textAlign: 'center', color: colors.charcoalSoft, marginTop: 5, marginBottom: 26 }}>Log in to your kitchen assistant</Txt>
       <Controller control={control} name="email" render={({ field: { onChange, value } }) => <Field label="Email" value={value} onChangeText={onChange} autoCapitalize="none" keyboardType="email-address" placeholder="you@example.com" />} />
       {errors.email && <Txt style={{ color: colors.red, fontSize: 12, marginTop: 4 }}>{errors.email.message}</Txt>}
-      <Controller control={control} name="password" render={({ field: { onChange, value } }) => <Field label="Password" value={value} onChangeText={onChange} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: 14 }} />} />
+      <Controller control={control} name="password" render={({ field: { onChange, value } }) => <View style={{ marginTop: 14 }}>
+        <Label>Password</Label>
+        <View style={{ justifyContent: 'center' }}>
+          <Field label={undefined} value={value} onChangeText={onChange} secureTextEntry={!passwordVisible} placeholder="••••••••" style={{ paddingRight: 52 }} autoCapitalize="none" autoCorrect={false} />
+          <Pressable onPress={() => setPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'} accessibilityState={{ selected: passwordVisible }} hitSlop={8} style={{ position: 'absolute', right: 14, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            {passwordVisible ? <EyeOff size={19} color={colors.charcoalMute} /> : <Eye size={19} color={colors.charcoalMute} />}
+          </Pressable>
+        </View>
+      </View>} />
       {errors.password && <Txt style={{ color: colors.red, fontSize: 12, marginTop: 4 }}>{errors.password.message}</Txt>}
-      <Pressable onPress={() => router.push('/forgot-password')} style={{ alignSelf: 'flex-end', marginVertical: 14 }}><Txt style={{ color: colors.forest600, fontSize: 12, fontWeight: '600' }}>Forgot password?</Txt></Pressable>
-      <Button onPress={handleSubmit(submit)} disabled={isSubmitting}><ButtonText>{isSubmitting ? 'Logging in…' : 'Log in'}</ButtonText></Button>
+      <View style={{ marginTop: 18 }}><Button onPress={handleSubmit(submit)} disabled={isSubmitting}><ButtonText>{isSubmitting ? 'Logging in…' : 'Log in'}</ButtonText></Button></View>
       <Pressable onPress={() => router.push('/signup')} style={{ marginTop: 22 }}><Txt style={{ textAlign: 'center', color: colors.charcoalSoft }}>New to ChefMate? <Txt style={{ color: colors.forest700, fontWeight: '700' }}>Create an account</Txt></Txt></Pressable>
       <View style={{ backgroundColor: colors.accent50, borderRadius: 16, padding: 12, marginTop: 24 }}><Txt style={{ color: colors.charcoalMute, fontSize: 11, lineHeight: 17 }}>Sign in with your ChefMate account. Your session is stored securely on this device.</Txt></View>
     </KeyboardAvoidingView>
@@ -243,30 +371,15 @@ export function SignupScreen() {
         ['password', 'Password', 'At least 8 characters', true],
         ['confirm', 'Confirm password', 'Repeat password', true],
       ] as const).map(([field, label, placeholder, secure]) => <View key={field} style={{ marginBottom: 12 }}>
-        <Controller control={control} name={field} render={({ field: { onChange, value } }) => <Field label={label} value={value} onChangeText={onChange} placeholder={placeholder} secureTextEntry={secure} autoCapitalize={field === 'email' ? 'none' : 'sentences'} keyboardType={field === 'email' ? 'email-address' : 'default'} />} />
+        <Controller control={control} name={field} render={({ field: { onChange, value } }) => secure
+          ? <PasswordField label={label} value={value} onChangeText={onChange} placeholder={placeholder} />
+          : <Field label={label} value={value} onChangeText={onChange} placeholder={placeholder} autoCapitalize={field === 'email' ? 'none' : 'sentences'} keyboardType={field === 'email' ? 'email-address' : 'default'} />
+        } />
         {errors[field] && <Txt style={{ color: colors.red, fontSize: 12, marginTop: 3 }}>{errors[field]?.message}</Txt>}
       </View>)}
       <Button onPress={handleSubmit(submit)} disabled={isSubmitting}><ButtonText>{isSubmitting ? 'Creating account…' : 'Create account'}</ButtonText></Button>
       <Pressable onPress={() => router.push('/login')} style={{ marginTop: 22 }}><Txt style={{ textAlign: 'center', color: colors.charcoalSoft }}>Already have an account? <Txt style={{ color: colors.forest700, fontWeight: '700' }}>Log in</Txt></Txt></Pressable>
     </KeyboardAvoidingView>
-  </Page>;
-}
-
-export function ForgotPasswordScreen() {
-  const router = useRouter();
-  const toast = useToast();
-  const [email, setEmail] = useState('');
-  return <Page>
-    <HeaderBack label="Back to login" />
-    <View style={{ alignItems: 'center', marginTop: 45, marginBottom: 24 }}><Brand /></View>
-    <Txt style={{ textAlign: 'center', fontSize: 24, fontWeight: '700' }}>Reset your password</Txt>
-    <Txt style={{ textAlign: 'center', color: colors.charcoalSoft, lineHeight: 21, marginTop: 9, marginBottom: 22 }}>Enter your email to check password-reset availability.</Txt>
-    <Field value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
-    <View style={{ marginTop: 14 }}><Button onPress={() => {
-      if (/.+@.+\..+/.test(email)) toast('Password reset is not available yet.', 'error');
-      else toast('Enter a valid email address', 'error');
-    }}><ButtonText>Send reset link</ButtonText></Button></View>
-    <View style={{ marginTop: 12 }}><Button secondary onPress={() => router.replace('/login')}><ButtonText color={colors.forest700}>Back to login</ButtonText></Button></View>
   </Page>;
 }
 
@@ -562,15 +675,7 @@ export function PantryScreen() {
   const runExpiry = async () => {
     try {
       await runBackendExpiryCheck();
-      const permission = await Notifications.requestPermissionsAsync();
-      if (permission.granted && (soon.length || expired.length)) {
-        const item = expired[0] ?? soon[0];
-        await Notifications.scheduleNotificationAsync({
-          content: { title: item.expiryDate && daysUntil(item.expiryDate) < 0 ? `${item.name} has expired` : `${item.name} expires soon`, body: 'Check your ChefMate pantry and use this ingredient in a recipe.' },
-          trigger: null,
-        });
-      }
-      toast(permission.granted ? 'Expiry check complete — notifications updated' : 'Expiry check complete — enable notifications in Activity for device reminders', 'info');
+      toast('Expiry check complete.', 'info');
     } catch (error) {
       toast(error instanceof Error ? error.message : 'The expiry check failed.', 'error');
     }
@@ -599,7 +704,7 @@ export function PantryScreen() {
     </View>
     <View style={{ backgroundColor: colors.forest700, borderRadius: 22, padding: 17, marginBottom: 15 }}>
       <Txt style={{ color: colors.cream, fontWeight: '700', fontSize: 16 }}>Expiry automation</Txt>
-      <Txt style={{ color: '#FAF8F2BB', fontSize: 12, lineHeight: 18, marginTop: 6 }}>A nightly job checks every item, queues push notifications and generates recipe ideas for near-expiry ingredients.</Txt>
+      <Txt style={{ color: '#FAF8F2BB', fontSize: 12, lineHeight: 18, marginTop: 6 }}>A nightly job checks every item and generates recipe ideas for near-expiry ingredients.</Txt>
       <Pressable onPress={runExpiry} style={{ marginTop: 12, alignSelf: 'flex-start', backgroundColor: colors.cream, borderRadius: 20, paddingHorizontal: 13, paddingVertical: 9 }}><Txt style={{ color: colors.forest700, fontSize: 12, fontWeight: '700' }}>✦ Run expiry check now</Txt></Pressable>
     </View>
     {suggestions.length > 0 && <View style={[styles.card, { backgroundColor: colors.accent50 }]}><SectionTitle>Use it up: recipe ideas</SectionTitle><Txt style={{ color: colors.charcoalSoft, fontSize: 12, marginBottom: 10 }}>Made with {soon.map((item) => item.name).join(', ')}</Txt>{suggestions.map((recipe) => <Txt key={recipe.id} style={{ color: colors.forest700, marginBottom: 7 }}>{recipe.title} ›</Txt>)}</View>}
@@ -618,7 +723,7 @@ export function PantryScreen() {
       <View style={{ flexDirection: 'row', gap: 9, marginTop: 12 }}><Button secondary onPress={() => setShowAdd(false)} style={{ flex: 1 }}><ButtonText color={colors.forest700}>Cancel</ButtonText></Button><Button onPress={addItem} style={{ flex: 1 }}><ButtonText>Add</ButtonText></Button></View>
     </View>}
     {visible.length === 0 ? <EmptyState title={pantry.length ? 'Nothing here' : 'Your pantry is empty'} message={pantry.length ? 'Try a different filter.' : 'Scan your fridge or add items manually to start tracking inventory and expiry dates.'} action={<PageButton label="Scan my fridge" onPress={() => router.push('/app/scanner')} />} /> : visible.map((item) => <PantryRow key={item.id} item={item} />)}
-    <Txt style={{ color: colors.charcoalMute, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 20 }}>Expiry checks can use Expo notifications when permission is granted; scheduled checks run automatically.</Txt>
+    <Txt style={{ color: colors.charcoalMute, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 20 }}>Expiry checks monitor items and run automatically.</Txt>
   </Page>;
 }
 
@@ -1092,41 +1197,11 @@ export function NutritionScreen() {
 export function ActivityScreen() {
   const notifications = useAppStore((s) => s.notifications);
   const jobs = useAppStore((s) => s.automationJobs);
-  const user = useAppStore((s) => s.user);
   const toast = useToast();
-  const [permission, setPermission] = useState<string>('unknown');
-  const [pushRegistered, setPushRegistered] = useState(false);
   const unread = notifications.filter((item) => !item.read).length;
   useEffect(() => {
-    Notifications.getPermissionsAsync().then((result) => setPermission(result.status)).catch(() => setPermission('unknown'));
     void refreshBackendActivity().catch((error) => toast(error instanceof Error ? error.message : 'Could not load activity.', 'error'));
   }, []);
-  const enable = async () => {
-    try {
-      const current = await Notifications.getPermissionsAsync();
-      const result = current.granted ? current : await Notifications.requestPermissionsAsync();
-      setPermission(result.status);
-      if (!result.granted) {
-        toast('Notification permission was not granted. You can change it in device settings.', 'info');
-        return;
-      }
-      const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim();
-      if (!projectId) {
-        toast('Notification permission is on. Remote push delivery needs an Expo project ID.', 'info');
-        return;
-      }
-      try {
-        const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
-        if (user) await updateBackendProfile(user, pushToken.data);
-        setPushRegistered(true);
-        toast('Push notifications enabled');
-      } catch (error) {
-        toast(error instanceof Error ? `Push registration unavailable: ${error.message}` : 'Push registration is unavailable on this device.', 'info');
-      }
-    } catch (error) {
-      toast(error instanceof Error ? error.message : 'Notifications are unavailable on this device.', 'error');
-    }
-  };
   const readAll = async () => {
     try { await markAllNotificationsRead(); }
     catch (error) { toast(error instanceof Error ? error.message : 'Could not mark notifications as read.', 'error'); }
@@ -1137,7 +1212,6 @@ export function ActivityScreen() {
   };
   const statusColor: Record<string, string> = { completed: colors.forest700, running: colors.accent600, queued: colors.charcoalMute, failed: colors.red };
   return <Page title="Activity" subtitle="Notifications and automation job history." right={<Badge label="Workflow history" />}>
-    <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}><View style={{ flex: 1 }}><Txt style={{ fontWeight: '700' }}>Push notifications</Txt><Txt style={{ color: colors.charcoalMute, fontSize: 11, marginTop: 4 }}>Permission: {permission}</Txt></View><Button onPress={enable}><ButtonText>{pushRegistered ? 'Enabled' : 'Enable'}</ButtonText></Button></View>
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, marginBottom: 10 }}><SectionTitle>♧ Notifications {unread > 0 ? `(${unread})` : ''}</SectionTitle>{unread > 0 && <Pressable onPress={() => void readAll()}><Txt style={{ color: colors.forest700, fontSize: 11, fontWeight: '600' }}>Mark all read</Txt></Pressable>}</View>
     {notifications.length === 0 ? <EmptyState title="No notifications yet" message="Notifications from your ChefMate account will appear here." /> : notifications.map((item) => <Pressable key={item.id} onPress={() => void readNotification(item.id)} style={[styles.card, { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderLeftWidth: item.read ? 0 : 4, borderLeftColor: colors.accent500, opacity: item.read ? 0.72 : 1 }]}>
       <View style={{ width: 34, height: 34, borderRadius: 18, backgroundColor: item.type === 'expiry' ? colors.accent50 : colors.sage, alignItems: 'center', justifyContent: 'center' }}><Bell size={15} color={item.type === 'expiry' ? colors.accent600 : colors.forest700} /></View>
@@ -1227,18 +1301,31 @@ export function VoiceAssistantScreen() {
   const addMessage = useAppStore((s) => s.addVoiceMessage);
   const clearHistory = useAppStore((s) => s.clearVoiceHistory);
   const [language, setLanguage] = useState('en-IN');
-  const [languageOpen, setLanguageOpen] = useState(false);
   const [text, setText] = useState('');
-  const [transcript, setTranscript] = useState('');
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const scrollRef = useRef<ScrollView>(null);
-  useEffect(() => { scrollRef.current?.scrollToEnd({ animated: true }); }, [voiceHistory.length, processing]);
+  const wave = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    scrollRef.current?.scrollToEnd({ animated: true });
+  }, [voiceHistory.length, recording, processing, speaking]);
+  useEffect(() => {
+    if (!recording && !speaking) {
+      wave.stopAnimation();
+      wave.setValue(0);
+      return;
+    }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(wave, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.timing(wave, { toValue: 0.25, duration: 280, useNativeDriver: true }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [recording, speaking, wave]);
   const handleCommand = async (command: string) => {
     if (!command.trim()) return;
-    setTranscript(command);
     setProcessing(true);
     const userMessage: VoiceMessage = { id: uid('v'), role: 'user', text: command, timestamp: new Date().toISOString() };
     addMessage(userMessage);
@@ -1249,19 +1336,22 @@ export function VoiceAssistantScreen() {
       setProcessing(false);
       setSpeaking(true);
       await speakText(reply, language);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : 'The assistant hit a snag. Please try again.', 'error');
+    } catch {
+      toast('Assistant is down. Please try again.', 'error');
     } finally { setProcessing(false); setSpeaking(false); }
   };
   const start = async () => {
     try {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
       if (!permission.granted) { toast('Microphone permission denied — you can still type commands', 'error'); return; }
+      if (!isLiveBackend) {
+        toast('Voice unavailable. Connect the app to a server with Sarvam voice configured.', 'error');
+        return;
+      }
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
       setRecording(true);
-      setTranscript('');
     } catch {
       toast('Could not start recording. Check microphone permissions and try again.', 'error');
     }
@@ -1273,46 +1363,56 @@ export function VoiceAssistantScreen() {
       const uri = recorder.uri;
       if (!uri) { toast('No audio recording was created. Please try again.', 'error'); return; }
       if (!isLiveBackend) {
-        toast('Live transcription is unavailable right now. Type a command or choose a suggestion.', 'info');
+        toast('Voice unavailable. Connect the app to a server with Sarvam voice configured.', 'error');
         return;
       }
       setProcessing(true);
       const audioBase64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       const recognized = await transcribeAudio(audioBase64, language);
       if (!recognized.trim()) { toast('No speech was recognized. Try again or type your command.', 'info'); setProcessing(false); return; }
-      setTranscript(recognized);
       await handleCommand(recognized);
-    } catch (error) {
+    } catch {
       setRecording(false);
       setProcessing(false);
-      toast(error instanceof Error ? error.message : 'Audio transcription failed. You can still type a command.', 'error');
+      toast('Assistant is down. Please try again.', 'error');
     } finally {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     }
   };
-  return <Page>
+  return <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
     <HeaderBack />
-    <View style={{ alignItems: 'center', marginBottom: 18 }}><Txt style={{ fontSize: 23, fontWeight: '700', textAlign: 'center' }}>ChefMate Voice Assistant</Txt><Txt style={{ color: colors.charcoalSoft, textAlign: 'center', marginTop: 5 }}>Speak naturally — I'll understand, act, and talk back.</Txt><View style={{ marginTop: 9 }}><Badge label="ChefMate Voice AI" /></View></View>
-    <View style={[styles.card, { padding: 22, alignItems: 'center', backgroundColor: recording ? colors.forest700 : colors.white }]}>
-      <View style={{ height: 62, justifyContent: 'center', alignItems: 'center', marginBottom: 14 }}>{recording ? <Txt style={{ color: colors.accent300, fontSize: 22 }}>▂▅▇▅▂▇▅</Txt> : processing ? <ActivityIndicator size="large" color={colors.forest600} /> : speaking ? <Txt style={{ color: colors.accent500, fontSize: 28 }}>◖))</Txt> : <Txt style={{ color: colors.charcoalMute, fontSize: 12, textAlign: 'center' }}>Tap the mic and speak, or type below</Txt>}</View>
-      <Pressable onPress={recording ? stop : start} disabled={processing} accessibilityLabel={recording ? 'Stop recording' : 'Start recording'} style={{ width: 76, height: 76, borderRadius: 40, backgroundColor: recording ? colors.accent500 : colors.forest700, alignItems: 'center', justifyContent: 'center', opacity: processing ? 0.5 : 1 }}><Mic size={29} color={colors.cream} /></Pressable>
-      {transcript ? <View style={{ marginTop: 17, backgroundColor: colors.cream, borderRadius: 14, padding: 12, alignSelf: 'stretch' }}><Txt style={{ color: colors.charcoalMute, fontSize: 9, fontWeight: '700', marginBottom: 4 }}>TRANSCRIPTION</Txt><Txt>{transcript}</Txt></View> : null}
+    <View style={{ alignItems: 'center', marginBottom: 10 }}><Txt style={{ fontSize: 23, fontWeight: '700', textAlign: 'center' }}>ChefMate Voice Assistant</Txt><Txt style={{ color: colors.charcoalSoft, textAlign: 'center', marginTop: 5 }}>Speak naturally — I'll understand, act, and talk back.</Txt><View style={{ marginTop: 7 }}><Badge label="ChefMate Voice AI" /></View></View>
+    <View style={[styles.card, { padding: 14, marginBottom: 8, alignItems: 'center', backgroundColor: recording ? colors.forest700 : colors.white }]}>
+      <View style={{ height: 42, justifyContent: 'center', alignItems: 'center', marginBottom: 6 }}>
+        {recording || speaking
+          ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 36 }}>
+            {[0, 1, 2, 3, 4].map((bar) => <Animated.View key={bar} style={{ width: 5, height: 28, borderRadius: 4, backgroundColor: recording ? colors.accent300 : colors.accent500, transform: [{ scaleY: wave.interpolate({ inputRange: [0, 1], outputRange: [0.35 + bar * 0.04, 0.7 + (4 - bar) * 0.06] }) }] }} />)}
+            <Txt style={{ color: recording ? colors.cream : colors.charcoalSoft, fontSize: 12, marginLeft: 8 }}>{recording ? 'Listening…' : 'Speaking…'}</Txt>
+          </View>
+          : processing ? <View style={{ alignItems: 'center', gap: 5 }}><ActivityIndicator size="small" color={colors.forest600} /><Txt style={{ color: colors.charcoalSoft, fontSize: 12 }}>Thinking…</Txt></View>
+            : <Txt style={{ color: colors.charcoalMute, fontSize: 12, textAlign: 'center' }}>Tap the mic and speak, or type below</Txt>}
+      </View>
+      <Pressable onPress={recording ? stop : start} disabled={processing} accessibilityLabel={recording ? 'Stop recording' : 'Start recording'} style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: recording ? colors.accent500 : colors.forest700, alignItems: 'center', justifyContent: 'center', opacity: processing ? 0.5 : 1 }}><Mic size={26} color={colors.cream} /></Pressable>
     </View>
-    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-      <Pressable onPress={() => setLanguageOpen(!languageOpen)} style={[styles.card, { flex: 1, marginBottom: 0, paddingVertical: 11 }]}><Txt style={{ fontSize: 11 }}>{VOICE_LANGUAGES.find((item) => item.code === language)?.label ?? language} ▾</Txt></Pressable>
-      <Button secondary onPress={() => { void speakText('Hello, I am your ChefMate assistant. How can I help you in the kitchen today?', language).catch((error) => toast(error instanceof Error ? error.message : 'Voice playback failed.', 'error')); }}><Txt style={{ color: colors.charcoalSoft, fontSize: 11 }}>◖)) Test voice</Txt></Button>
-      {voiceHistory.length > 0 && <Pressable onPress={clearHistory} style={{ padding: 9 }}><Trash2 size={17} color={colors.charcoalMute} /></Pressable>}
+    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'stretch', marginBottom: 8 }}>
+      {VOICE_LANGUAGES.map((item) => <Pressable key={item.code} onPress={() => setLanguage(item.code)} style={[styles.card, { flex: 1, minWidth: 0, minHeight: 40, marginBottom: 0, paddingHorizontal: 4, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: language === item.code ? colors.forest500 : 'transparent' }]}><Txt numberOfLines={1} style={{ textAlign: 'center', fontSize: 10, color: language === item.code ? colors.forest700 : colors.charcoalSoft }}>{item.label}</Txt></Pressable>)}
+      <Pressable onPress={() => { const greeting = language === 'hi-IN' ? 'नमस्ते, मैं आपका ChefMate सहायक हूँ। रसोई में मैं आपकी कैसे मदद कर सकता हूँ?' : 'Hello, I am your ChefMate assistant. How can I help you in the kitchen today?'; void speakText(greeting, language).catch(() => toast('Assistant is down. Please try again.', 'error')); }} style={[styles.card, { flex: 1, minWidth: 0, minHeight: 40, marginBottom: 0, paddingHorizontal: 4, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }]}><Txt numberOfLines={1} style={{ color: colors.charcoalSoft, fontSize: 10 }}>◖)) Test voice</Txt></Pressable>
     </View>
-    {languageOpen && <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{VOICE_LANGUAGES.map((item) => <Pill key={item.code} label={item.label} active={language === item.code} onPress={() => { setLanguage(item.code); setLanguageOpen(false); }} />)}</View>}
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 13 }}>{DEMO_TRANSCRIPTS.slice(0, 4).map((command) => <Pill key={command} label={`"${command}"`} onPress={() => handleCommand(command)} />)}</View>
-    <ScrollView ref={scrollRef} style={{ maxHeight: 320 }} contentContainerStyle={{ paddingBottom: 10 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 6 }}>{DEMO_TRANSCRIPTS.slice(0, 4).map((command) => <Pill key={command} label={`"${command}"`} onPress={() => handleCommand(command)} />)}</View>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <Txt style={{ color: colors.charcoalSoft, fontSize: 12, fontWeight: '700' }}>Conversation</Txt>
+      {voiceHistory.length > 0 && <Pressable onPress={clearHistory} accessibilityLabel="Clear conversation" hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4 }}><Trash2 size={14} color={colors.charcoalMute} /><Txt style={{ color: colors.charcoalMute, fontSize: 11 }}>Clear</Txt></Pressable>}
+    </View>
+    <ScrollView ref={scrollRef} style={{ flex: 1, minHeight: 180 }} contentContainerStyle={{ paddingBottom: 10 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {voiceHistory.length === 0 && <EmptyState title="Conversation history appears here" message="Try a suggested command above." />}
-      {voiceHistory.map((message) => <View key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%', backgroundColor: message.role === 'user' ? colors.forest700 : colors.white, borderRadius: 20, padding: 12, marginBottom: 8 }}><Txt style={{ color: message.role === 'user' ? colors.cream : colors.charcoal, lineHeight: 20 }}>{message.action ? `✦ ${message.action}\n` : ''}{message.text}</Txt><Txt style={{ color: message.role === 'user' ? '#FAF8F299' : colors.charcoalMute, fontSize: 9, marginTop: 5 }}>{formatTime(message.timestamp)}</Txt></View>)}
+      {voiceHistory.map((message) => <View key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '94%', backgroundColor: message.role === 'user' ? colors.forest700 : colors.white, borderRadius: 20, padding: 12, marginBottom: 8 }}><Txt style={{ color: message.role === 'user' ? colors.cream : colors.charcoal, lineHeight: 20 }}>{message.action ? `✦ ${message.action}\n` : ''}{message.text}</Txt><Txt style={{ color: message.role === 'user' ? '#FAF8F299' : colors.charcoalMute, fontSize: 9, marginTop: 5 }}>{formatTime(message.timestamp)}</Txt></View>)}
       {processing && <ActivityIndicator color={colors.forest700} />}
     </ScrollView>
-    <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}><TextInput value={text} onChangeText={setText} onSubmitEditing={() => { const command = text.trim(); setText(''); void handleCommand(command); }} placeholder="Type a command instead…" style={[styles.input, { flex: 1, borderRadius: 25 }]} /><Button onPress={() => { const command = text.trim(); setText(''); void handleCommand(command); }} disabled={!text.trim() || processing}><Send size={17} color={colors.cream} /></Button></View>
-    <Txt style={{ color: colors.charcoalMute, fontSize: 10, lineHeight: 16, textAlign: 'center', marginTop: 12 }}>Audio transcription, voice responses, and speech synthesis are available through your ChefMate account.</Txt>
-  </Page>;
+    <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' }}><TextInput value={text} onChangeText={setText} onSubmitEditing={() => { const command = text.trim(); setText(''); void handleCommand(command); }} returnKeyType="send" placeholder="Type a command instead…" style={[styles.input, { flex: 1, minWidth: 0, height: 52, borderRadius: 18 }]} /><Button onPress={() => { const command = text.trim(); setText(''); void handleCommand(command); }} disabled={!text.trim() || processing} style={{ width: 52, height: 52, paddingHorizontal: 0, paddingVertical: 0 }}><Send size={17} color={colors.cream} /></Button></View>
+    <Txt style={{ color: colors.charcoalMute, fontSize: 10, lineHeight: 16, textAlign: 'center', marginTop: 6 }}>Hindi and English voice recognition and responses are powered by Sarvam AI.</Txt>
+    </View>
+  </KeyboardAvoidingView>;
 }
 
 

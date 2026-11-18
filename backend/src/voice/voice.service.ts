@@ -42,7 +42,7 @@ export class VoiceService {
   }
 
   async respond(userId: string, text: string, language = 'en-IN', context?: Record<string, any>) {
-    const understanding = await this.voiceAgent.understand(text);
+    const understanding = await this.voiceAgent.understand(text, language);
 
     const executionResults: ToolExecutionResult[] = [];
     for (const call of understanding.toolCalls) {
@@ -71,7 +71,9 @@ export class VoiceService {
 
   async fullPipeline(userId: string, audio: string, language = 'en-IN') {
     const { transcript } = await this.voiceAgent.transcribe(audio, language);
-    return this.respond(userId, transcript, language);
+    const response = await this.respond(userId, transcript, language);
+    const { audioBase64, demoMode } = await this.voiceAgent.speak(response.textResponse, language);
+    return { ...response, audioBase64, demoMode };
   }
 
   private async executeTool(userId: string, call: VoiceToolCall, context?: Record<string, any>): Promise<ToolExecutionResult> {

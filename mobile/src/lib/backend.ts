@@ -635,8 +635,14 @@ export async function respondToVoice(textValue: string, language: string, contex
   };
 }
 
-export async function speakWithBackend(textValue: string, language: string): Promise<void> {
-  await api.post('/api/voice/speak', { text: textValue, language });
+export async function speakWithBackend(
+  textValue: string,
+  language: string,
+): Promise<{ audioBase64: string; demoMode: boolean }> {
+  const result = record(await api.post<unknown>('/api/voice/speak', { text: textValue, language }));
+  const audioBase64 = text(result.audioBase64);
+  if (!audioBase64) throw new ApiError('Voice unavailable. No speech audio was returned.');
+  return { audioBase64, demoMode: Boolean(result.demoMode) };
 }
 
 export async function getDailyNutritionSummary(): Promise<unknown> {

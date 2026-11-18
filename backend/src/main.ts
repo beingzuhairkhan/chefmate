@@ -29,7 +29,7 @@ async function bootstrap() {
     config.get<string>("app.frontendOrigin") || "http://localhost:5173";
 
   app.enableCors({
-    origin: frontendOrigin,
+    origin: true,
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],

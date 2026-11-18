@@ -118,7 +118,7 @@ export class DemoService {
         ],
         prepTime: 10, cookingTime: 15, servings: 2, difficulty: 'Easy',
         nutrition: { calories: 180, protein: 4, carbs: 22, fat: 8, fiber: 5 },
-        image: 'https://images.unsplash.com/photo-1606491956682-2e462852c382?w=800&q=80',
+        image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=800&q=80',
         cuisine: 'Indian', isFavorite: false, isAIGenerated: true,
       },
     ]);
