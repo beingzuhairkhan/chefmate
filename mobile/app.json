@@ -49,6 +49,11 @@
     "platforms": ["ios", "android", "web"],
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "extra": {
+      "eas": {
+        "projectId": "845ea349-df9f-4eeb-b306-d0842725e506"
+      }
+    },
     "web": {
       "bundler": "metro",
       "output": "static",

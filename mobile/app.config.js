@@ -10,6 +10,10 @@ module.exports = {
     ...app.android,
     usesCleartextTraffic: !isProduction && apiBaseUrl.startsWith('http://'),
   },
+  updates: {
+    url: "https://u.expo.dev/845ea349-df9f-4eeb-b306-d0842725e506"
+  },
+  runtimeVersion: "1.0.0",
   extra: {
     ...app.extra,
     eas: {
